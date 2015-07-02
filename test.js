@@ -1,4 +1,4 @@
-// LICENSE_CODE ZON
+// Copyright (C) 2015 Hola. Licensed under the GPLv3
 'use strict'; /*jslint node:true, mocha:true*/
 var assert = require('assert');
 var fs = require('fs');
