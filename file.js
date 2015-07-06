@@ -7,7 +7,6 @@ var fs = require('fs');
 var E = exports;
 E.is_win = /^win/.test(process.platform);
 E.read_buf_size = 8192;
-E.safe = {};
 
 function check_file(dst, opt){
     opt = opt||{};
@@ -16,45 +15,48 @@ function check_file(dst, opt){
     if (opt.unlink)
         E.unlink(dst);
 }
-function chomp_cr(str){
-    if (str[str.length-1]=='\r')
-        return str.substr(0, str.length-1);
-    return str;
-}
 
-E.read_line = function(file){
-    var fd, buf = '', eol_idx, res;
-    fd = fs.openSync(file, 'r');
-    while ((res = fs.readSync(fd, E.read_buf_size, null)) && res[1])
-    {
-	if ((eol_idx = res[0].indexOf('\n'))<0)
-	    buf += res[0];
-	else
-	{
-	    buf += res[0].substr(0, eol_idx);
-	    break;
-	}
-    }
-    fs.closeSync(fd);
-    buf = chomp_cr(buf);
-    return buf;
+E.read = function(filename, opt){
+    if (opt===undefined)
+        opt = 'utf8';
+    return fs.readFileSync(filename, opt);
 };
-E.read_lines = function(file){
-    var res = fs.readFileSync(file, 'utf8');
-    var ret = res.split(/\r?\n/);
+E.read_cb = function(filename, offset, length, pos, cb){
+    var res, fd, buf;
+    fd = fs.openSync(filename, 'r');
+    buf = new Buffer(E.read_buf_size);
+    try {
+        while ((res = fs.readSync(fd, buf, 0, length, pos)))
+        {
+            if (cb(buf, res, pos))
+                return;
+            pos += res;
+        }
+    } finally { fs.closeSync(fd); }
+};
+E.read_line = function(filename){
+    var ret = '';
+    var code = 10 // \n
+    E.read_cb(filename, 0, E.read_buf_size, 0, function(buf, read){
+        var idx, size = Math.min(buf.length, read);
+        for (idx=0; idx<size && buf[idx]!=code; idx++);
+        ret += buf.slice(0, Math.min(idx, size));
+        return idx<size;
+    });
+    // strip \r symbols on non-unix endlines
+    if (ret[ret.length-1]=='\r')
+        return ret.substr(0, ret.length-1);
+    return ret;
+};
+E.read_lines = function(filename){
+    var ret = E.read(filename).split(/\r?\n/);
     if (ret[ret.length-1]==='')
         ret.pop();
     return ret;
 };
-E.read = function(file, opt){
-    if (opt===undefined)
-        opt = 'utf8';
-    return fs.readFileSync(file, opt);
-};
-E.fread = function(fd, opt){
-    opt = opt||{};
+E.fread = function(fd, start){
     var buf, res, ret = '';
-    var start = opt.start||0;
+    start = start||0;
     buf = new Buffer(E.read_buf_size);
     // XXX: support for size
     while ((res = fs.readSync(fd, buf, 0, E.read_buf_size, start)))
@@ -71,9 +73,9 @@ E.write = function(file, data, opt){
     return 0;
 };
 E.write_lines = function(file, data, opt){
-    return E.write(file,
-        Array.isArray(data) ? (data.length ? data.join('\n')+'\n' : '') :
-        ''+data+'\n', opt);
+    data = Array.isArray(data) ?
+        (data.length ? data.join('\n')+'\n' : '') : ''+data+'\n';
+    return E.write(file, data, opt);
 };
 E.append = function(file, data, opt){
     opt = opt||{};
@@ -89,8 +91,8 @@ E.tail = function(file, count){
     if (start<0)
         start = 0;
     fd = fs.openSync(file, 'r');
-    ret = E.fread(fd, {start: start});
-    fs.closeSync(fd);
+    try { ret = E.fread(fd, start); }
+    finally { fs.closeSync(fd); }
     return ret;
 };
 E._mkdirp = function(p, mode, made){
@@ -98,8 +100,7 @@ E._mkdirp = function(p, mode, made){
         mode = parseInt('0777', 8) & ~(process.umask&&process.umask());
     if (typeof mode==='string')
         mode = parseInt(mode, 8);
-    if (!made)
-        made = null;
+    made = made||null;
     p = path.resolve(p);
     var paths = [];
     while (p && !E.exists(p))
@@ -107,7 +108,6 @@ E._mkdirp = function(p, mode, made){
         paths.unshift(p);
         p = path.dirname(p);
     }
-    // Will throw all errors up
     for (var i=0; i<paths.length; i++)
     {
         fs.mkdirSync(paths[i], mode);
@@ -150,26 +150,20 @@ E.is_dir = function(path){
     return stat.isDirectory();
 };
 E._copy = function(src, dst, opt){
-    var res, fd, fdw, pos = 0;
+    var fdw, stat, mode;
     opt = opt||{};
     // XXX: check if mode of dst file is correct after umask
+    stat = fs.statSync(src);
+    if (E.is_dir(dst)||dst[dst.length-1]=='/')
+        dst = dst+'/'+path.basename(src);
+    check_file(dst, opt);
+    mode = 'mode' in opt ? opt.mode : stat.mode & parseInt('0777', 8);
+    fdw = fs.openSync(dst, 'w', mode);
     try {
-        var stat = fs.statSync(src);
-        if (E.is_dir(dst)||dst[dst.length-1]=='/')
-            dst = dst+'/'+path.basename(src);
-        check_file(dst, opt);
-        fd = fs.openSync(src, 'r');
-        var mode = 'mode' in opt ? opt.mode : stat.mode & parseInt('0777', 8);
-        fdw = fs.openSync(dst, 'w', mode);
-    } catch(e){ return e.code; }
-    var buf = new Buffer(E.read_buf_size);
-    while ((res = fs.readSync(fd, buf, 0, E.read_buf_size, pos)))
-    {
-        fs.writeSync(fdw, buf, 0, res);
-        pos += res;
+        E.read_cb(src, 0, E.read_buf_size, 0, function(buf, read){
+            fs.writeSync(fdw, buf, 0, read); });
     }
-    fs.closeSync(fd);
-    fs.closeSync(fdw);
+    finally { fs.closeSync(fdw); }
     return 0;
 };
 E._copy_dir = function(src, dst, opt){
@@ -184,13 +178,12 @@ E._copy_dir = function(src, dst, opt){
 };
 E.copy = function(src, dst, opt){
     src = E.normalize(src);
+    dst = E.normalize(dst);
     if (E.is_dir(src))
         return E._copy_dir(src, dst, opt);
     return E._copy(src, dst, opt);
 };
-
 E.link = function(src, dst, opt){
-    var ret = 0;
     opt = opt||{};
     src = E.normalize(src);
     dst = E.normalize(dst);
@@ -204,32 +197,20 @@ E.link = function(src, dst, opt){
     }
     return 0;
 };
-
 E.symlink = function(src, dst, opt){
     if (E.is_win)
         return E.link(src, dst, opt);
     src = E.normalize(src);
     dst = E.normalize(dst);
     check_file(dst, opt);
-    var ret = 0;
-    try {
-        var src_abs = fs.realpathSync(src);
-        fs.symlinkSync(src_abs, dst);
-    }
-    catch(e){ return e.code; }
+    var src_abs = fs.realpathSync(src);
+    fs.symlinkSync(src_abs, dst);
     return 0;
 };
-
 E.hashsum = function(filename, type){
     var hash = crypto.createHash(type||'md5');
-    var fd = fs.openSync(filename, 'r');
-    var res, pos = 0, buffer = new Buffer(E.read_buf_size);
-    while ((res = fs.readSync(fd, buffer, 0, E.read_buf_size, pos)))
-    {
-        hash.update(buffer.slice(0, res));
-        pos += res;
-    }
-    fs.closeSync(fd);
+    E.read_cb(filename, 0, E.read_buf_size, 0, function(buf, read){
+        hash.update(buf.slice(0, read)); });
     return hash.digest('hex');
 };
 

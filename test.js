@@ -9,13 +9,46 @@ describe('file', function(){
     var tmp_filename = 'test.tmp';
     beforeEach(function(){ file.unlink(tmp_filename); });
     afterEach(function(){ file.unlink(tmp_filename); });
-    it('read_line', function(){
+    it('read', function(){
 	var t = function(data, exp){
+	    file.write(tmp_filename, data);
+	    assert.deepEqual(file.read(tmp_filename), exp);
+	};
+	t('', '');
+	t('a', 'a');
+	t('ab\ncd\ne', 'ab\ncd\ne');
+	assert.throws(file.read.bind(null, 'not_exist'), /ENOENT/);
+    });
+    it('read_cb', function(){
+        var size = file.read_buf_size;
+        var data = new Array(size*2+12);
+        data = data.join('');
+        file.write(tmp_filename, data);
+        var t = function(data, read, pos, c){
+            var count = 0, res = '';
+            var func = function(buf, read, pos){
+                count++;
+                assert.equal(read[count], read);
+                assert.equal(pos[count], pos);
+                res += buf.slice(0, read);
+                if (c && count>c)
+                    return true;
+            };
+            file.read_cb(tmp_filename, 0, size, 0, func);
+            assert.equal(res, data);
+        };
+        t(data, [size, size, data.length-size*2], [0, size, size*2]);
+        t(data.slice(0, size*2), [size, size], [0, size, size*2], 1);
+        assert.throws(file.read_cb.bind(null, 'not_exists'), /ENOENT/);
+    });
+    it('read_line', function(){
+        debugger;
+        var t = function(data, exp){
 	    var prev = file.read_buf_size;
 	    file.read_buf_size = 5;
             file.write(tmp_filename, data);
-            assert.equal(file.read_line(tmp_filename), exp);
-	    file.read_buf_size = prev;
+            try { assert.equal(file.read_line(tmp_filename), exp); }
+            finally { file.read_buf_size = prev; }
 	};
 	t('a', 'a');
 	t('ab\ncd\ne', 'ab');
@@ -40,16 +73,6 @@ describe('file', function(){
 	t('ab\ncd\ne\n\n', ['ab', 'cd', 'e', '']);
 	t('ab\r\ncd\r\ne\n\n', ['ab', 'cd', 'e', '']);
 	assert.throws(file.read_lines.bind(null, 'not_exist'), /ENOENT/);
-    });
-    it('read', function(){
-	var t = function(data, exp){
-	    file.write(tmp_filename, data);
-	    assert.deepEqual(file.read(tmp_filename), exp);
-	};
-	t('', '');
-	t('a', 'a');
-	t('ab\ncd\ne', 'ab\ncd\ne');
-	assert.throws(file.read.bind(null, 'not_exist'), /ENOENT/);
     });
     it('fread', function(){
         var t = function(data, exp){
@@ -178,20 +201,20 @@ describe('file', function(){
         var dcp = 'dst_file';
         file.unlink(cp);
         file.unlink(dcp);
-        function t(src, dst, data, mode, opt, ret){
+        function t(src, dst, data, mode, opt){
             mode = mode||'0666';
-            ret = ret||0;
             if (typeof data=='string')
                 file.write(src, data, {mode: mode});
-            var result = file.copy(src, dst, opt);
-            assert.equal(result, ret);
-            if (!result)
-            {
+            try {
+                file.copy(src, dst, opt);
                 if (file.is_dir(dst))
                     dst += '/'+path.basename(src);
                 var statd = fs.statSync(dst);
                 assert.equal(statd.mode & parseInt('0777', 8),
                     parseInt(mode, 8) & ~process.umask());
+            }
+            finally
+            {
                 file.unlink(src);
                 file.unlink(dst);
             }
@@ -200,11 +223,11 @@ describe('file', function(){
         t(cp, dcp, 'some data');
         t(cp, dcp, 'more\ndata\n');
         t(cp, dcp, 'data', '0777');
-        t('/file', dcp, null, 0, 0, 'ENOENT');
-        t(cp, '/file', 'wrong', 0, 0, 'EACCES');
+        assert.throws(file.copy.bind(null, '/file', dcp), /ENOENT/);
+        assert.throws(t.bind(null, cp, '/file', 'wrong'), /EACCES/);
         var dcd = dcp+'_dir';
         file.rm_rf(dcd);
-        t(cp, dcd+'/file', 'data', 0, 0, 'ENOENT');
+        assert.throws(t.bind(null, cp, dcd+'/file', 'data'), /ENOENT/);
         t(cp, dcd+'/file', 'data', 0, {mkdirp: 1});
         t(cp, dcd+'/', 'data');
         t(cp, dcd, 'data');
@@ -236,22 +259,20 @@ describe('file', function(){
         file.unlink(ls);
         file.unlink(ld);
         file.rm_rf(ld+'d');
-        var t = function(src, dst, ret, opt){
-            var result = file.symlink(src, dst, opt);
-            assert.equal(result, ret||0);
-            if (result)
-                return;
+        var t = function(src, dst, opt){
+            file.symlink(src, dst, opt);
             var stat = fs.lstatSync(dst);
             assert(stat.isSymbolicLink());
             assert.equal(src, fs.readlinkSync(dst));
         };
-        t(ls, ld, 'ENOENT');
+        assert.throws(file.symlink.bind(null, ls, ld), /ENOENT/);
         file.write(ls, 'data');
         t(ls, ld);
-        t(ls, ld, 'EEXIST');
-        t(ls, ld, 0, {unlink: 1});
-        t(ls, ld+'d/dir/file', 'ENOENT');
-        t(ls, ld+'d/dir/file', 0, {mkdirp: 1});
+        assert.throws(file.symlink.bind(null, ls, ld), /EEXIST/);
+        t(ls, ld, {unlink: 1});
+        assert.throws(file.symlink.bind(null, ls, ld+'d/dir/file'),
+            /ENOENT/);
+        t(ls, ld+'d/dir/file', {mkdirp: 1});
         file.rm_rf(ld+'d');
         file.unlink(ls);
         file.unlink(ld);
