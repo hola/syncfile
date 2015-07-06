@@ -36,7 +36,7 @@ E.read_cb = function(filename, offset, length, pos, cb){
 };
 E.read_line = function(filename){
     var ret = '';
-    var code = 10 // \n
+    var code = 10; // \n
     E.read_cb(filename, 0, E.read_buf_size, 0, function(buf, read){
         var idx, size = Math.min(buf.length, read);
         for (idx=0; idx<size && buf[idx]!=code; idx++);

@@ -42,7 +42,6 @@ describe('file', function(){
         assert.throws(file.read_cb.bind(null, 'not_exists'), /ENOENT/);
     });
     it('read_line', function(){
-        debugger;
         var t = function(data, exp){
             var prev = file.read_buf_size;
             file.read_buf_size = 5;
