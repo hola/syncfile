@@ -10,14 +10,14 @@ describe('file', function(){
     beforeEach(function(){ file.unlink(tmp_filename); });
     afterEach(function(){ file.unlink(tmp_filename); });
     it('read', function(){
-	var t = function(data, exp){
-	    file.write(tmp_filename, data);
-	    assert.deepEqual(file.read(tmp_filename), exp);
-	};
-	t('', '');
-	t('a', 'a');
-	t('ab\ncd\ne', 'ab\ncd\ne');
-	assert.throws(file.read.bind(null, 'not_exist'), /ENOENT/);
+        var t = function(data, exp){
+            file.write(tmp_filename, data);
+            assert.deepEqual(file.read(tmp_filename), exp);
+        };
+        t('', '');
+        t('a', 'a');
+        t('ab\ncd\ne', 'ab\ncd\ne');
+        assert.throws(file.read.bind(null, 'not_exist'), /ENOENT/);
     });
     it('read_cb', function(){
         var size = file.read_buf_size;
@@ -44,35 +44,35 @@ describe('file', function(){
     it('read_line', function(){
         debugger;
         var t = function(data, exp){
-	    var prev = file.read_buf_size;
-	    file.read_buf_size = 5;
+            var prev = file.read_buf_size;
+            file.read_buf_size = 5;
             file.write(tmp_filename, data);
             try { assert.equal(file.read_line(tmp_filename), exp); }
             finally { file.read_buf_size = prev; }
-	};
-	t('a', 'a');
-	t('ab\ncd\ne', 'ab');
-	t('ab\r\ncd\r\ne', 'ab');
-	t('abcde\ncd\ne', 'abcde');
-	t('abcdef\ncd\ne', 'abcdef');
-	t('abcde', 'abcde');
-	t('abcdef', 'abcdef');
-	t('abcdef\n', 'abcdef');
-	t('abcdef\r\n', 'abcdef');
-	assert.throws(file.read_line.bind(null, 'not_exist'), /ENOENT/);
+        };
+        t('a', 'a');
+        t('ab\ncd\ne', 'ab');
+        t('ab\r\ncd\r\ne', 'ab');
+        t('abcde\ncd\ne', 'abcde');
+        t('abcdef\ncd\ne', 'abcdef');
+        t('abcde', 'abcde');
+        t('abcdef', 'abcdef');
+        t('abcdef\n', 'abcdef');
+        t('abcdef\r\n', 'abcdef');
+        assert.throws(file.read_line.bind(null, 'not_exist'), /ENOENT/);
     });
     it('read_lines', function(){
-	var t = function(data, exp){
-	    file.write(tmp_filename, data);
-	    assert.deepEqual(file.read_lines(tmp_filename), exp);
-	};
-	t('', []);
-	t('a', ['a']);
-	t('ab\ncd\ne', ['ab', 'cd', 'e']);
-	t('ab\ncd\ne\n', ['ab', 'cd', 'e']);
-	t('ab\ncd\ne\n\n', ['ab', 'cd', 'e', '']);
-	t('ab\r\ncd\r\ne\n\n', ['ab', 'cd', 'e', '']);
-	assert.throws(file.read_lines.bind(null, 'not_exist'), /ENOENT/);
+        var t = function(data, exp){
+            file.write(tmp_filename, data);
+            assert.deepEqual(file.read_lines(tmp_filename), exp);
+        };
+        t('', []);
+        t('a', ['a']);
+        t('ab\ncd\ne', ['ab', 'cd', 'e']);
+        t('ab\ncd\ne\n', ['ab', 'cd', 'e']);
+        t('ab\ncd\ne\n\n', ['ab', 'cd', 'e', '']);
+        t('ab\r\ncd\r\ne\n\n', ['ab', 'cd', 'e', '']);
+        assert.throws(file.read_lines.bind(null, 'not_exist'), /ENOENT/);
     });
     it('fread', function(){
         var t = function(data, exp){
@@ -87,24 +87,24 @@ describe('file', function(){
         assert.throws(file.fread.bind(null, -1), /EBADF/);
     });
     it('write', function(){
-	var t = function(data, exp){
+        var t = function(data, exp){
             file.write(tmp_filename, data);
             assert.deepEqual(file.read(tmp_filename), exp);
-	};
-	t('', '');
-	t(1, '1');
-	t(new Buffer([1, 2, 3]), '\u0001\u0002\u0003');
+        };
+        t('', '');
+        t(1, '1');
+        t(new Buffer([1, 2, 3]), '\u0001\u0002\u0003');
     });
     it('write_lines', function(){
-	var t = function(data, exp){
+        var t = function(data, exp){
             file.write_lines(tmp_filename, data);
             assert.deepEqual(file.read(tmp_filename), exp);
-	};
-	t('', '\n');
-	t(1, '1\n');
-	t([], '');
-	t(['abc'], 'abc\n');
-	t(['abc', 'def'], 'abc\ndef\n');
+        };
+        t('', '\n');
+        t(1, '1\n');
+        t([], '');
+        t(['abc'], 'abc\n');
+        t(['abc', 'def'], 'abc\ndef\n');
     });
     it('tail', function(){
         var t = function(data, count, exp){
@@ -118,15 +118,15 @@ describe('file', function(){
     });
     it('append', function(){
         var expr = '';
-	var t = function(data){
+        var t = function(data){
             expr += data;
             file.append(tmp_filename, data);
             assert.deepEqual(file.read(tmp_filename), expr);
-	};
+        };
         t('', '');
-	t(1, '1');
+        t(1, '1');
         t('23\n', '123\n');
-	t(new Buffer([1, 2, 3]), '123\n\u0001\u0002\u0003');
+        t(new Buffer([1, 2, 3]), '123\n\u0001\u0002\u0003');
     });
     it('mkdirp', function(){
         var t = function(dir, mode, root){
@@ -137,12 +137,12 @@ describe('file', function(){
             assert(!dir.indexOf(made));
             var bits = parseInt(mode, 8);
             assert.equal(fs.statSync(dir).mode & bits, bits);
-	    file.rm_rf(made);
+            file.rm_rf(made);
         };
         file.rm_rf('/tmp/mkdirp_test');
-	t('/tmp/mkdirp_test', '0777');
-	t('/tmp/mkdirp_test/test2/test3', '0755');
-	t('/tmp/mkdirp_test/a/b/c/d/_/r/e/c/u/r/s/i/v/e/_/m/k/d/i/r/_'+
+        t('/tmp/mkdirp_test', '0777');
+        t('/tmp/mkdirp_test/test2/test3', '0755');
+        t('/tmp/mkdirp_test/a/b/c/d/_/r/e/c/u/r/s/i/v/e/_/m/k/d/i/r/_'+
             '/f/a/i/l/e/d/_/w/i/t/h/_/t/h/i/s/');
         assert.throws(function(){
             var filename = '/tmp/mkdir_file';
@@ -156,41 +156,41 @@ describe('file', function(){
     it('exists', function(){
         var t = function(_file, exp){
             assert.equal(file.exists(_file), exp); };
-	t('.', true);
-	t('..', true);
-	t('does_not_exist', false);
-	t('test.js', true);
-	t('./test.js', true);
+        t('.', true);
+        t('..', true);
+        t('does_not_exist', false);
+        t('test.js', true);
+        t('./test.js', true);
     });
     it('is_file', function(){
         var t = function(_file, exp){
             assert.equal(file.is_file(_file), exp); };
-	t('.', false);
-	t('..', false);
-	t('does_not_exist', false);
-	t('test.js', true);
-	t('./test.js', true);
+        t('.', false);
+        t('..', false);
+        t('does_not_exist', false);
+        t('test.js', true);
+        t('./test.js', true);
     });
     it('is_dir', function(){
         var t = function(dir, exp){
             assert.equal(file.is_dir(dir), exp); };
-	t('.', true);
-	t('..', true);
-	t('does_not_exist', false);
-	t('test.js', false);
-	t('./test.js', false);
+        t('.', true);
+        t('..', true);
+        t('does_not_exist', false);
+        t('test.js', false);
+        t('./test.js', false);
     });
     it('touch', function(){
-	assert.equal(file.touch(tmp_filename), undefined);
-	assert.equal(file.unlink(tmp_filename), undefined);
-	assert.throws(file.touch.bind(null, '/this/file/does-not/exist'),
+        assert.equal(file.touch(tmp_filename), undefined);
+        assert.equal(file.unlink(tmp_filename), undefined);
+        assert.throws(file.touch.bind(null, '/this/file/does-not/exist'),
             /ENOENT/);
     });
     it('unlink', function(){
-	assert.equal(file.unlink('/this/file/does-not/exist'), 'ENOENT');
-	file.write(tmp_filename, 'abc');
-	assert.equal(file.unlink(tmp_filename), undefined);
-	assert.equal(file.unlink(tmp_filename), 'ENOENT');
+        assert.equal(file.unlink('/this/file/does-not/exist'), 'ENOENT');
+        file.write(tmp_filename, 'abc');
+        assert.equal(file.unlink(tmp_filename), undefined);
+        assert.equal(file.unlink(tmp_filename), 'ENOENT');
         // Unlink dir
         file.mkdirp('test_dir');
         assert.equal(file.unlink('test_dir'), 'EISDIR');
@@ -334,39 +334,39 @@ describe('file', function(){
             file.is_win = is_win;
             file.cygwin_root = root;
         });
-	it('cyg2unix', function(){
-	    var t = function(path, exp){
-		assert.equal(file.cyg2unix(path), exp); };
-	    t('file', 'file');
-	    t('dir/file', 'dir/file');
-	    t('c:/dir/file', 'c:/dir/file');
-	    t('/cygdrive/c/dir/file', 'c:/dir/file');
-	    t('/cygdrive/c', 'c:/');
-	    t('/dir', 'c:/cygwin/dir');
+        it('cyg2unix', function(){
+            var t = function(path, exp){
+                assert.equal(file.cyg2unix(path), exp); };
+            t('file', 'file');
+            t('dir/file', 'dir/file');
+            t('c:/dir/file', 'c:/dir/file');
+            t('/cygdrive/c/dir/file', 'c:/dir/file');
+            t('/cygdrive/c', 'c:/');
+            t('/dir', 'c:/cygwin/dir');
             t('/', 'c:/cygwin/');
-	});
+        });
         it('unix2win', function(){
-	    var t = function(path, exp){
-		assert.equal(file.unix2win(path), exp); };
+            var t = function(path, exp){
+                assert.equal(file.unix2win(path), exp); };
             t('file', 'file');
             t('dir/file', 'dir\\file');
             t('c:/dir/file', 'C:\\dir\\file');
         });
-	it('win2unix', function(){
-	    var t = function(path, exp){
-		assert.equal(file.win2unix(path), exp); };
-	    t('file', 'file');
-	    t('dir\\file', 'dir/file');
-	    t('C:\\file', 'c:/file');
+        it('win2unix', function(){
+            var t = function(path, exp){
+                assert.equal(file.win2unix(path), exp); };
+            t('file', 'file');
+            t('dir\\file', 'dir/file');
+            t('C:\\file', 'c:/file');
         });
         it('win2cyg', function(){
-	    var t = function(path, exp){
-		assert.equal(file.win2cyg(path), exp); };
+            var t = function(path, exp){
+                assert.equal(file.win2cyg(path), exp); };
             t('C:\\file', '/cygdrive/c/file');
-	    t('C:\\cygwin\\usr', '/usr');
-	    t('C:/cygwin', '/');
-	    t('c:/cygwin/x', '/x');
-	    t('abC:/cygwinxx', 'abC:/cygwinxx');
-	});
+            t('C:\\cygwin\\usr', '/usr');
+            t('C:/cygwin', '/');
+            t('c:/cygwin/x', '/x');
+            t('abC:/cygwinxx', 'abC:/cygwinxx');
+        });
     });
 });

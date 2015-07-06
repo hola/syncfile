@@ -217,11 +217,11 @@ E.hashsum = function(filename, type){
 if (E.is_win)
 {
     E.cygwin_root = E.is_dir('C:/cygwin') ? 'C:/cygwin' :
-	E.is_dir('D:/cygwin') ? 'D:/cygwin' : null;
+        E.is_dir('D:/cygwin') ? 'D:/cygwin' : null;
 }
 E.cyg2unix = function(path){
     if (!E.is_win)
-	return path;
+        return path;
     // /cygdrive/X/yyy --> X:/yyy
     path = path.replace(/^\/cygdrive\/(.)(\/(.*))?$/, "$1:/$3");
     // /usr/lib --> c:/cygwin/lib
@@ -234,7 +234,7 @@ E.cyg2unix = function(path){
 };
 E.unix2win = function(path){
     if (!E.is_win)
-	return path;
+        return path;
     // c:/xxx -> C:/xxx
     path = path.replace(/^[cd]:/, function(s){ return s.toUpperCase(); });
     // C:/xxx/yyy -> C:\xxx\yyy
@@ -253,12 +253,12 @@ E.win2unix = function(path, force)
 };
 E.win2cyg = function(path){
     if (!E.is_win)
-	return path;
+        return path;
     path = E.win2unix(path);
     var escaped_root = E.cygwin_root.replace(/([\?\\\/\[\]+*])/g, '\\$1');
     path = path.replace(new RegExp("^"+escaped_root+"/?", "i"), '/');
     path = path.replace(/^[cd]:/i, function(s){
-	return "/cygdrive/"+s[0].toLowerCase(); });
+        return "/cygdrive/"+s[0].toLowerCase(); });
     return path;
 };
 E.is_absolute = function(path){
