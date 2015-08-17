@@ -16,7 +16,7 @@
     "sync"
   ],
   "author": "Hola team",
-  "license": "ISC",
+  "license": "GPLv3",
   "bugs": {
     "url": "https://github.com/hola/syncfile/issues"
   },
