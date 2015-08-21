@@ -1,6 +1,6 @@
 {
   "name": "syncfile",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Synchronous filesystem api",
   "main": "file.js",
   "scripts": {
