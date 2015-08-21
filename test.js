@@ -7,8 +7,11 @@ var file = require('./file.js');
 
 describe('file', function(){
     var tmp_filename = 'test.tmp';
-    beforeEach(function(){ file.unlink(tmp_filename); });
-    afterEach(function(){ file.unlink(tmp_filename); });
+    beforeEach(file.unlink.bind(null, tmp_filename));
+    afterEach(file.unlink.bind(null, tmp_filename));
+    describe('throwing', function(){
+    before(function(){ file = file._; });
+    after(function(){ file = file.safe; });
     it('read', function(){
         var t = function(data, exp){
             file.write(tmp_filename, data);
@@ -34,7 +37,7 @@ describe('file', function(){
                 if (c && count>c)
                     return true;
             };
-            file.read_cb(tmp_filename, 0, size, 0, func);
+            assert(file.read_cb(tmp_filename, 0, size, 0, func));
             assert.equal(res, data);
         };
         t(data, [size, size, data.length-size*2], [0, size, size*2]);
@@ -87,7 +90,7 @@ describe('file', function(){
     });
     it('write', function(){
         var t = function(data, exp){
-            file.write(tmp_filename, data);
+            assert(file.write(tmp_filename, data));
             assert.deepEqual(file.read(tmp_filename), exp);
         };
         t('', '');
@@ -96,7 +99,7 @@ describe('file', function(){
     });
     it('write_lines', function(){
         var t = function(data, exp){
-            file.write_lines(tmp_filename, data);
+            assert(file.write_lines(tmp_filename, data));
             assert.deepEqual(file.read(tmp_filename), exp);
         };
         t('', '\n');
@@ -104,6 +107,18 @@ describe('file', function(){
         t([], '');
         t(['abc'], 'abc\n');
         t(['abc', 'def'], 'abc\ndef\n');
+    });
+    it('append', function(){
+        var expr = '';
+        var t = function(data){
+            expr += data;
+            assert(file.append(tmp_filename, data));
+            assert.deepEqual(file.read(tmp_filename), expr);
+        };
+        t('', '');
+        t(1, '1');
+        t('23\n', '123\n');
+        t(new Buffer([1, 2, 3]), '123\n\u0001\u0002\u0003');
     });
     it('tail', function(){
         var t = function(data, count, exp){
@@ -114,18 +129,6 @@ describe('file', function(){
         var ld = new Array(file.read_buf_size);
         ld = ld.join('abc');
         t(ld, null, ld.substr(ld.length-file.read_buf_size));
-    });
-    it('append', function(){
-        var expr = '';
-        var t = function(data){
-            expr += data;
-            file.append(tmp_filename, data);
-            assert.deepEqual(file.read(tmp_filename), expr);
-        };
-        t('', '');
-        t(1, '1');
-        t('23\n', '123\n');
-        t(new Buffer([1, 2, 3]), '123\n\u0001\u0002\u0003');
     });
     it('mkdirp', function(){
         var t = function(dir, mode, root){
@@ -152,60 +155,34 @@ describe('file', function(){
         }, /ENOTDIR/);
         assert.throws(t.bind(null, '/cannot/create'), /EACCES/);
     });
-    it('exists', function(){
-        var t = function(_file, exp){
-            assert.equal(file.exists(_file), exp); };
-        t('.', true);
-        t('..', true);
-        t('does_not_exist', false);
-        t('test.js', true);
-        t('./test.js', true);
-    });
-    it('is_file', function(){
-        var t = function(_file, exp){
-            assert.equal(file.is_file(_file), exp); };
-        t('.', false);
-        t('..', false);
-        t('does_not_exist', false);
-        t('test.js', true);
-        t('./test.js', true);
-    });
-    it('is_dir', function(){
-        var t = function(dir, exp){
-            assert.equal(file.is_dir(dir), exp); };
-        t('.', true);
-        t('..', true);
-        t('does_not_exist', false);
-        t('test.js', false);
-        t('./test.js', false);
-    });
-    it('touch', function(){
-        assert.equal(file.touch(tmp_filename), undefined);
-        assert.equal(file.unlink(tmp_filename), undefined);
-        assert.throws(file.touch.bind(null, '/this/file/does-not/exist'),
-            /ENOENT/);
-    });
     it('unlink', function(){
-        assert.equal(file.unlink('/this/file/does-not/exist'), 'ENOENT');
+        assert.throws(file.unlink.bind(null, '/this/file/does-not/exist'),
+            /ENOENT/);
         file.write(tmp_filename, 'abc');
-        assert.equal(file.unlink(tmp_filename), undefined);
-        assert.equal(file.unlink(tmp_filename), 'ENOENT');
+        assert(file.unlink(tmp_filename));
+        assert.throws(file.unlink.bind(null, tmp_filename), /ENOENT/);
         // Unlink dir
         file.mkdirp('test_dir');
-        assert.equal(file.unlink('test_dir'), 'EISDIR');
+        assert.throws(file.unlink.bind(null, 'test_dir'), /EISDIR/);
         file.rm_rf('test_dir');
+    });
+    it('touch', function(){
+        assert(file.touch(tmp_filename));
+        assert(file.unlink(tmp_filename));
+        assert.throws(file.touch.bind(null, '/this/file/does-not/exist'),
+            /ENOENT/);
     });
     it('copy', function(){
         var cp = 'copy_file';
         var dcp = 'dst_file';
-        file.unlink(cp);
-        file.unlink(dcp);
+        file.safe.unlink(cp);
+        file.safe.unlink(dcp);
         function t(src, dst, data, mode, opt){
             mode = mode||'0666';
             if (typeof data=='string')
                 file.write(src, data, {mode: mode});
             try {
-                file.copy(src, dst, opt);
+                assert(file.copy(src, dst, opt));
                 if (file.is_dir(dst))
                     dst += '/'+path.basename(src);
                 var statd = fs.statSync(dst);
@@ -214,8 +191,8 @@ describe('file', function(){
             }
             finally
             {
-                file.unlink(src);
-                file.unlink(dst);
+                file.safe.unlink(src);
+                file.safe.unlink(dst);
             }
         }
         t(cp, dcp, '');
@@ -231,17 +208,17 @@ describe('file', function(){
         t(cp, dcd+'/', 'data');
         t(cp, dcd, 'data');
         t(cp, dcp, 'data', '0444', {mode: '444'});
-        file.unlink(cp);
-        file.unlink(dcp);
+        file.safe.unlink(cp);
+        file.safe.unlink(dcp);
         file.rm_rf(dcd);
     });
     it('link', function(){
         var ls = 'link_src', ld = 'link_dst';
-        file.unlink(ls);
-        file.unlink(ld);
+        file.safe.unlink(ls);
+        file.safe.unlink(ld);
         file.rm_rf(ld+'d');
         var t = function(src, dst, opt){
-            assert(!file.link(src, dst, opt));
+            assert(file.link(src, dst, opt));
             assert(file.exists(dst));
             assert(file.is_file(dst));
         };
@@ -255,11 +232,11 @@ describe('file', function(){
     it('symlink', function(){
         var ls = file.absolutize('slink_src', __dirname);
         var ld = file.absolutize('slink_dst', __dirname);
-        file.unlink(ls);
-        file.unlink(ld);
+        file.safe.unlink(ls);
+        file.safe.unlink(ld);
         file.rm_rf(ld+'d');
         var t = function(src, dst, opt){
-            file.symlink(src, dst, opt);
+            assert(file.symlink(src, dst, opt));
             var stat = fs.lstatSync(dst);
             assert(stat.isSymbolicLink());
             assert.equal(src, fs.readlinkSync(dst));
@@ -289,6 +266,66 @@ describe('file', function(){
         t(ld.join('1'), '0811769d134bdb1a36408c510d5e767a');
         file.unlink(f);
     });
+    }); // throwing
+    describe('safe', function(){
+    // null-returning
+    ['read', 'read_line', 'read_lines', 'tail', 'hashsum'].forEach(
+    function(method){
+        it(method, function(){
+            assert.equal(file[method]('not_exist'), null);
+            assert.equal(file.errno, 'ENOENT');
+        });
+    });
+    function mit(method, args, err){
+        it(method, function(){
+            assert(!file[method].apply(null, args));
+            assert.equal(file.errno, err);
+        });
+    }
+    var cc = '/cannot/create';
+    mit('read_cb', [cc], 'ENOENT');
+    mit('fread', [12345], 'EBADF');
+    mit('write', [cc, 'noent'], 'ENOENT');
+    mit('append', [cc, 'noent'], 'ENOENT');
+    mit('mkdirp', [cc], 'EACCES');
+    mit('unlink', [cc], 'ENOENT');
+    mit('touch', [cc], 'ENOENT');
+    }); // safe
+    it('exists', function(){
+        var t = function(_file, exp){
+            assert.equal(file.exists(_file), exp); };
+        t('.', true);
+        t('..', true);
+        t('does_not_exist', false);
+        t('test.js', true);
+        t('./test.js', true);
+    });
+    it('is_file', function(){
+        var t = function(_file, exp){
+            assert.equal(file.is_file(_file), exp); };
+        t('.', false);
+        t('..', false);
+        t('does_not_exist', false);
+        t('test.js', true);
+        t('./test.js', true);
+    });
+    it('is_dir', function(){
+        var t = function(dir, exp){
+            assert.equal(file.is_dir(dir), exp); };
+        t('.', true);
+        t('..', true);
+        t('does_not_exist', false);
+        t('test.js', false);
+        t('./test.js', false);
+    });
+    it('is_symlink', function(){
+        var t = function(dir, exp){
+            assert.equal(file.is_symlink(dir), exp); };
+        t('.', false);
+        t('does_not_exist', false);
+            file.symlink('test.js', tmp_filename);
+        t(tmp_filename, true);
+    });
     it('is_absolute', function(){
         var t = function(s, r){ assert(file.is_absolute(s)==r); };
         t('/file', true);
@@ -302,10 +339,10 @@ describe('file', function(){
         t('/file', '/x', '', '/file');
         t('file', '/dir', '', '/dir/file');
         t('file', '/dir', '/', '/dir/file');
-        var cpf = '/tmp/abs_file';
-        var cp = path.dirname(cpf);
-        file.touch(cpf, '');
-        t('abs_file', '/', cp, cpf);
+        var cp = '/tmp';
+        var cpf = cp+'/'+tmp_filename;
+        file.touch(cpf);
+        t(tmp_filename, '/', cp, cpf);
         file.unlink(cpf);
     });
     it('normalize', function(){
